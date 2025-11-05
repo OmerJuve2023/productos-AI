@@ -1,0 +1,51 @@
+# application.yml - convertido desde application.properties
+# NOTA: No dejes la API key en el repositorio. Define la variable de entorno OPENAI_API_KEY
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/productos_db
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  ai:
+    openai:
+      # Recomendado: exportar OPENAI_API_KEY en tu entorno
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        options:
+          model: text-embedding-3-small
+    vectorstore:
+      pgvector:
+        # Dimensiones del modelo text-embedding-3-small
+        dimensions: 1536
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+        remove-existing-vector-store-table: false
+        table-name: vector_store
+        schema-name: public
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+app:
+  index-on-startup: false
+
+logging:
+  level:
+    root: INFO
+    com.example.productosai: DEBUG
+    org.springframework.ai: DEBUG
+    org.springframework.ai.vectorstore: TRACE
+
