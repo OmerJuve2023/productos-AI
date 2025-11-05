@@ -31,6 +31,26 @@ public class ProductoService {
     private volatile long lastAiCheckTime = 0;
     private static final long AI_CHECK_INTERVAL = 60000; // 1 minuto
 
+    // Constantes extraídas
+    private static final int DEFAULT_BATCH_SIZE = 20;
+    private static final int DEFAULT_MAX_RETRIES = 3;
+    private static final long DEFAULT_INITIAL_DELAY_MS = 2000L;
+    private static final long DEFAULT_RETRY_JITTER_MS = 500L;
+    private static final int MIN_TOPK = 1;
+    private static final int MAX_TOPK = 50;
+    private static final double MIN_SIMILARITY = 0.0;
+    private static final double MAX_SIMILARITY = 1.0;
+    private static final int CANDIDATES_MULTIPLIER = 3; // topK * 3 para candidatos
+    private static final int HYBRID_MULTIPLIER = 2; // topK * 2 en híbrido
+    private static final int TEXTUAL_MULTIPLIER = 3; // page size multipler en búsqueda textual
+
+    // Heuristic scoring constants
+    private static final double SCORE_KEYWORD_BASE = 10.0;
+    private static final double SCORE_KEYWORD_NAME_BONUS = 5.0;
+    private static final double SCORE_FRACTION = 15.0;
+    private static final double SCORE_SIZE = 8.0;
+    private static final double SCORE_STOCK = 2.0;
+
     /**
      * Indexar todos los productos
      */
@@ -44,9 +64,9 @@ public class ProductoService {
             return;
         }
 
-        final int batchSize = 20;
-        final int maxRetries = 3;
-        final long initialDelayMs = 2000L;
+        final int batchSize = DEFAULT_BATCH_SIZE;
+        final int maxRetries = DEFAULT_MAX_RETRIES;
+        final long initialDelayMs = DEFAULT_INITIAL_DELAY_MS;
 
         List<List<Producto>> batches = new ArrayList<>();
         for (int i = 0; i < productos.size(); i += batchSize) {
@@ -83,11 +103,11 @@ public class ProductoService {
 
                     if (attempt <= maxRetries) {
                         try {
-                            Thread.sleep(delay + (long)(Math.random() * 500));
+                            Thread.sleep(delay + (long)(Math.random() * DEFAULT_RETRY_JITTER_MS));
                         } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                         }
-                        delay *= 2;
+                        delay *= DEFAULT_MAX_RETRIES > 1 ? 2 : 1; // backoff
                     } else {
                         aiAvailable = false;
                     }
@@ -129,8 +149,8 @@ public class ProductoService {
             return List.of();
         }
 
-        int safeTopK = Math.max(1, Math.min(topK, 50));
-        double safeThreshold = Math.max(0.0, Math.min(similarityThreshold, 1.0));
+        int safeTopK = Math.max(MIN_TOPK, Math.min(topK, MAX_TOPK));
+        double safeThreshold = Math.max(MIN_SIMILARITY, Math.min(similarityThreshold, MAX_SIMILARITY));
 
         // ESTRATEGIA 1: IA Completa (si está disponible)
         if (shouldTryAI()) {
@@ -194,10 +214,10 @@ public class ProductoService {
         log.info("💡 IA reformuló: '{}' → '{}'", consulta, consultaMejorada);
 
         // Búsqueda vectorial
-        List<Producto> candidatos = buscarVectorial(consultaMejorada, topK * 3, threshold);
+        List<Producto> candidatos = buscarVectorial(consultaMejorada, topK * CANDIDATES_MULTIPLIER, threshold);
 
         if (candidatos.isEmpty()) {
-            candidatos = buscarVectorial(consulta, topK * 3, threshold);
+            candidatos = buscarVectorial(consulta, topK * CANDIDATES_MULTIPLIER, threshold);
         }
 
         if (candidatos.isEmpty()) {
@@ -219,7 +239,7 @@ public class ProductoService {
 
         // Intentar búsqueda vectorial con consulta normalizada
         try {
-            List<Producto> candidatos = buscarVectorial(qn.textNormalizado, topK * 2, threshold);
+            List<Producto> candidatos = buscarVectorial(qn.textNormalizado, topK * HYBRID_MULTIPLIER, threshold);
 
             if (!candidatos.isEmpty()) {
                 // Re-ranking heurístico (sin LLM)
@@ -238,7 +258,7 @@ public class ProductoService {
     private List<Producto> busquedaTextualAvanzada(String consulta, int topK) {
         QueryNormalized qn = normalizarHeuristica(consulta);
         Set<Producto> resultados = new LinkedHashSet<>();
-        PageRequest page = PageRequest.of(0, topK * 3);
+        PageRequest page = PageRequest.of(0, topK * TEXTUAL_MULTIPLIER);
 
         // 1. Buscar por keyword principal
         if (qn.keyword != null) {
@@ -362,25 +382,25 @@ public class ProductoService {
 
         // Keyword principal
         if (qn.keyword != null && texto.contains(qn.keyword)) {
-            score += 10.0;
+            score += SCORE_KEYWORD_BASE;
             if (p.getNombre() != null && p.getNombre().toLowerCase().contains(qn.keyword)) {
-                score += 5.0;
+                score += SCORE_KEYWORD_NAME_BONUS;
             }
         }
 
         // Fracción exacta
         if (qn.fraction != null && texto.contains(qn.fraction)) {
-            score += 15.0;
+            score += SCORE_FRACTION;
         }
 
         // Tamaño
         if (qn.size != null && texto.contains(qn.size)) {
-            score += 8.0;
+            score += SCORE_SIZE;
         }
 
         // Stock disponible
         if (p.getStock() != null && p.getStock() > 0) {
-            score += 2.0;
+            score += SCORE_STOCK;
         }
 
         return score;
