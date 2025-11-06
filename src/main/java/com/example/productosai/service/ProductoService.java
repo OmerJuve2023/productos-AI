@@ -103,7 +103,7 @@ public class ProductoService {
 
                     if (attempt <= maxRetries) {
                         try {
-                            Thread.sleep(delay + (long)(Math.random() * DEFAULT_RETRY_JITTER_MS));
+                            Thread.sleep(delay + (long) (Math.random() * DEFAULT_RETRY_JITTER_MS));
                         } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                         }
@@ -135,7 +135,7 @@ public class ProductoService {
 
     /**
      * 🤖 BÚSQUEDA INTELIGENTE CON SISTEMA DE FALLBACK
-     *
+     * <p>
      * Estrategia en cascada:
      * 1. Intenta con IA completa (reformulación + vector + re-ranking)
      * 2. Si falla reformulación: usa heurística + vector + re-ranking
@@ -327,6 +327,8 @@ public class ProductoService {
                 .replaceAll("\\bdieciséis\\b", "16")
                 .replaceAll("\\btres\\b", "3")
                 .replaceAll("\\bcuatro\\b", "4")
+                .replaceAll("\\buna\\b", "1")
+                .replaceAll("\\bun\\b", "1")
                 .replaceAll("\\bdiez\\b", "10");
 
         // Buscar fracción en palabras: "cinco octavos" → "5/8"
@@ -412,14 +414,14 @@ public class ProductoService {
     private String reformularConsultaConIA(String consulta) {
         try {
             String prompt = """
-                Reformula esta consulta para búsqueda de productos de ferretería.
-                Normaliza medidas: "cinco octavos" → "5/8", "dieciseis" → "16"
-                Expande abreviaturas: "plg" → "pulgadas"
-                Corrige errores comunes.
-                
-                Consulta: "{query}"
-                Respuesta (solo la consulta mejorada):
-                """;
+                    Reformula esta consulta para búsqueda de productos de ferretería.
+                    Normaliza medidas: "cinco octavos" → "5/8", "dieciseis" → "16"
+                    Expande abreviaturas: "plg" → "pulgadas"
+                    Corrige errores comunes.
+                    
+                    Consulta: "{query}"
+                    Respuesta (solo la consulta mejorada):
+                    """;
 
             ChatClient chatClient = chatClientBuilder.build();
             String resultado = chatClient.prompt()
@@ -489,13 +491,13 @@ public class ProductoService {
             }
 
             String prompt = """
-                Consulta: "{query}"
-                Productos:
-                {productos}
-                
-                Selecciona los {limit} más relevantes.
-                Responde solo con números separados por comas: 0,3,7
-                """;
+                    Consulta: "{query}"
+                    Productos:
+                    {productos}
+                    
+                    Selecciona los {limit} más relevantes.
+                    Responde solo con números separados por comas: 0,3,7
+                    """;
 
             ChatClient chatClient = chatClientBuilder.build();
             String respuesta = chatClient.prompt()
@@ -584,7 +586,12 @@ public class ProductoService {
             this.score = score;
         }
 
-        Producto getProducto() { return producto; }
-        double getScore() { return score; }
+        Producto getProducto() {
+            return producto;
+        }
+
+        double getScore() {
+            return score;
+        }
     }
 }
