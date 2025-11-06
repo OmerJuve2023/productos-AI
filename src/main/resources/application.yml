@@ -1,6 +1,3 @@
-# application.yml - convertido desde application.properties
-# NOTA: No dejes la API key en el repositorio. Define la variable de entorno OPENAI_API_KEY
-
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/productos_db

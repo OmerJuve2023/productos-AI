@@ -1,0 +1,6 @@
+spring:
+  ai:
+    openai:
+      # API key dummy para tests en CI/local. No usar en producción.
+      api-key: test-key-for-ci
+
